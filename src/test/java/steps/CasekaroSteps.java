@@ -160,60 +160,79 @@ public class CasekaroSteps {
 
     // this function is use to collect and store product data from multiple pages
     @Then("I fetch and store product details from first {int} pages")
-    public void i_fetch_and_store_product_details_from_first_pages(Integer pageCount) {
-        products.clear();
+public void i_fetch_and_store_product_details_from_first_pages(Integer pageCount) {
+    products.clear();
 
-        String baseUrl = page.url();
-        baseUrl = baseUrl.replaceAll("[&?]page=\\d+", "");
+    for (int pageNum = 1; pageNum <= pageCount; pageNum++) {
+        page.waitForLoadState(LoadState.NETWORKIDLE);
+        page.waitForSelector("li.grid__item");
 
-        for (int pageNum = 1; pageNum <= pageCount; pageNum++) {
-            String pageUrl = baseUrl + (baseUrl.contains("?") ? "&" : "?") + "page=" + pageNum;
-            page.navigate(pageUrl);
-            page.waitForLoadState(LoadState.NETWORKIDLE);
-            page.waitForSelector("li.grid__item");
+        Locator productCards = page.locator("li.grid__item");
+        int cardCount = productCards.count();
 
-            Locator productCards = page.locator("li.grid__item");
-            int cardCount = productCards.count();
+        for (int i = 0; i < cardCount; i++) {
+            Locator card = productCards.nth(i);
 
-            for (int i = 0; i < cardCount; i++) {
-                Locator card = productCards.nth(i);
-
-                String description = "";
-                Locator descLoc = card.locator("h3.card__heading a");
-                if (descLoc.count() > 0) {
-                    description = descLoc.first().innerText().trim();
-                }
-
-                String discountedStr = "";
-                Locator discLoc = card.locator("span.price-item--sale");
-                if (discLoc.count() > 0) {
-                    discountedStr = discLoc.first().innerText().replaceAll("[^0-9.]", "");
-                }
-
-                String actualStr = "";
-                Locator actLoc = card.locator("s.price-item--regular");
-                if (actLoc.count() > 0) {
-                    actualStr = actLoc.first().innerText().replaceAll("[^0-9.]", "");
-                }
-
-                String imgSrc = "";
-                Locator imgLoc = card.locator("div.card__media img");
-                if (imgLoc.count() > 0) {
-                    imgSrc = imgLoc.first().getAttribute("src");
-                    if (imgSrc != null && !imgSrc.startsWith("http")) {
-                        imgSrc = "https:" + imgSrc;
-                    }
-                }
-
-                double discounted = discountedStr.isEmpty() ? 0.0 : Double.parseDouble(discountedStr);
-                double actual = actualStr.isEmpty() ? discounted : Double.parseDouble(actualStr);
-
-                products.add(new Product(discounted, actual, description, imgSrc));
+            String description = "";
+            Locator descLoc = card.locator("h3.card__heading a");
+            if (descLoc.count() > 0) {
+                description = descLoc.first().innerText().trim();
             }
+
+            String discountedStr = "";
+            Locator discLoc = card.locator("span.price-item--sale");
+            if (discLoc.count() > 0) {
+                discountedStr = discLoc.first().innerText().replaceAll("[^0-9.]", "");
+            }
+
+            String actualStr = "";
+            Locator actLoc = card.locator("s.price-item--regular");
+            if (actLoc.count() > 0) {
+                actualStr = actLoc.first().innerText().replaceAll("[^0-9.]", "");
+            }
+
+            String imgSrc = "";
+            Locator imgLoc = card.locator("div.card__media img");
+            if (imgLoc.count() > 0) {
+                imgSrc = imgLoc.first().getAttribute("src");
+                if (imgSrc != null && !imgSrc.startsWith("http")) {
+                    imgSrc = "https:" + imgSrc;
+                }
+            }
+
+            double discounted = discountedStr.isEmpty() ? 0.0 : Double.parseDouble(discountedStr);
+            double actual = actualStr.isEmpty() ? discounted : Double.parseDouble(actualStr);
+
+            products.add(new Product(discounted, actual, description, imgSrc));
         }
 
-        Assertions.assertFalse(products.isEmpty(), "Product list should not be empty");
+        // Stop clicking after last required page
+        if (pageNum < pageCount) {
+            // Close any open filter summaries to avoid click interception
+            Locator openSummaries = page.locator("aside#main-collection-filters details[open] > summary.facets__summary");
+            int openCount = openSummaries.count();
+            for (int k = 0; k < openCount; k++) {
+                Locator summary = openSummaries.nth(k);
+                if (summary.isVisible()) {
+                    summary.click();
+                    page.waitForTimeout(200); 
+                }
+            }
+
+            Locator nextBtn = page.locator("a[aria-label='Next page']");
+            if (nextBtn.count() > 0 && nextBtn.first().isVisible()) {
+                nextBtn.first().click();
+                page.waitForLoadState(LoadState.NETWORKIDLE);
+            } else {
+                System.out.println("Next button not found on page " + pageNum);
+                break;
+            }
+        }
     }
+
+    Assertions.assertFalse(products.isEmpty(), "Product list should not be empty");
+}
+
 
     // Step to print all product details sorted by discounted price
     @Then("I print all products sorted by discounted price ascending")
@@ -230,7 +249,7 @@ public class CasekaroSteps {
 // I am so excited to work with you and grow within this organization and with
 // the organization
 
-//The problem I have faced in this project was for fatching the product details from the first 2 pages
+//The problem I have faced in this project was for fatching the product details from the pages
 // I have used the page.waitForSelector("li.grid__item") to wait for the product
 // cards to be visible before fetching the details.
 // May be there exists a better way to get rid of this issue, I am excited to
