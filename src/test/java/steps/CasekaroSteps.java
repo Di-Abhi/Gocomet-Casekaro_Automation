@@ -206,9 +206,8 @@ public void i_fetch_and_store_product_details_from_first_pages(Integer pageCount
             products.add(new Product(discounted, actual, description, imgSrc));
         }
 
-        // Stop clicking after last required page
+        
         if (pageNum < pageCount) {
-            // Close any open filter summaries to avoid click interception
             Locator openSummaries = page.locator("aside#main-collection-filters details[open] > summary.facets__summary");
             int openCount = openSummaries.count();
             for (int k = 0; k < openCount; k++) {
@@ -248,21 +247,3 @@ public void i_fetch_and_store_product_details_from_first_pages(Integer pageCount
 // Thankyou Gocomet team for your time and consideration
 // I am so excited to work with you and grow within this organization and with
 // the organization
-
-//The problem I have faced in this project was for fatching the product details from the pages
-// I have used the page.waitForSelector("li.grid__item") to wait for the product
-// cards to be visible before fetching the details.
-// May be there exists a better way to get rid of this issue, I am excited to
-// learn that
-
-// I have listed both positive and negative test Scenarios in different feature
-// files, where we can use multiple test cases
-// of both the scenarios using example of brand name and model name
-
-// About negative test cases: it will search for given brand name and given model
-//and it will insure any other brand product is not visible
-
-// About Positive test cases: Valid usage (excluding practices described in neg
-// testcases) will pass the testcase.
-// Assertions: We have used them whenever we found our project not to work
-// properly where it should work.
