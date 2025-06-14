@@ -1,170 +1,126 @@
 package steps;
 
 import com.microsoft.playwright.*;
-import com.microsoft.playwright.options.LoadState;
-import io.cucumber.java.After;
-import io.cucumber.java.Before;
 import io.cucumber.java.en.*;
-import org.junit.jupiter.api.Assertions;
 import java.util.*;
 
+import org.junit.Assert;
+
+import static org.junit.Assert.*;
+
 public class CasekaroSteps {
-    Playwright playwright;
-    Browser browser;
-    BrowserContext context;
-    Page page;
-    List<Product> products = new ArrayList<>();
 
-    // created a class which hold product details
-    static class Product {
-        private final double discountedPrice;
-        private final double actualPrice;
-        private final String description;
-        private final String imageLink;
+    // These are some variables neccessory to store our data
+    // browser variable is req to access the browser engine(here we will use
+    // chromium)
+    // page is required to navigate to the link
+    // Since we can have multiple brands so that we are not bounded to test only for
+    // one brand and can reuse code
+    // for this we have used a variable brand of string type
+    // model is the model of the mobile phone for which we are searching the covers
+    // covers is a list of maps to store the details of each cover found on the
 
-        public Product(double discountedPrice, double actualPrice, String description, String imageLink) {
-            this.discountedPrice = discountedPrice;
-            this.actualPrice = actualPrice;
-            this.description = description;
-            this.imageLink = imageLink;
-        }
+    public Browser browser;
+    public Page page;
+    public String category;
+    public String brand;
+    public String model;
+    List<Map<String, String>> covers = new ArrayList<>();
 
-        public double getDiscountedPrice() { return discountedPrice; }
-        public double getActualPrice() { return actualPrice; }
-        public String getDescription() { return description; }
-        public String getImageLink() { return imageLink; }
+    // So basically in below given function we are starting the playwright engine
+    // and using chromium browser (base browser for chrome and some other browsers)
+    // and then we are launching the browser in non-headless mode so that we can see
+    // the actions performed by the code
+    // and then we are creating a new page in the browser and navigating to the url
+    // given in the feature file
+    // If the url is not casekaro's url then we are failing the test case
+    // and if the url is valid then we are navigating to that url
 
-        @Override
-        public String toString() {
-            return String.format(
-                "Description: %s%nDiscounted Price: ₹%.2f%nActual Price: ₹%.2f%nImage Link: %s%n%s",
-                description, discountedPrice, actualPrice, imageLink,
-                "---------------------------------------"
-            );
-        }
-    }
-
-    // this fuction create browser and page before each scenario
-    @Before
-    public void setup() {
-        playwright = Playwright.create();
-        browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(false));
-        context = browser.newContext();
-        page = context.newPage();
-    }
-
-    // when the testing is over this function will close the browser playwright etc.
-    @After
-    public void tearDown() {
-        context.close();
-        browser.close();
-        playwright.close();
-    }
-
-    // Step to open a given URL and check the title
     @Given("I navigate to {string}")
-    public void i_navigate_to(String url) {
-        page.navigate(url);
-        Assertions.assertTrue(page.title().toLowerCase().contains("casekaro"),
-                "Page title must contain 'casekaro'");
-    }
-
-    // this function to click on a menu option
-    @When("I click on {string}")
-    public void i_click_on(String menuText) {
-        if (menuText.equals("Mobile Covers")) {
-            page.navigate("https://casekaro.com/pages/mobile-back-covers");
-            page.waitForLoadState();
-            Assertions.assertTrue(page.url().toLowerCase().contains("casekaro.com"),
-                    "URL should contain casekaro.com");
-        } else {
-            Locator menu = page.locator("nav a:has-text('" + menuText + "'), header a:has-text('" + menuText + "')").first();
-            menu.waitFor(new Locator.WaitForOptions().setTimeout(5000));
-            menu.click();
-            Assertions.assertTrue(page.url().toLowerCase().contains(menuText.toLowerCase().replace(" ", "-")),
-                    "URL should contain " + menuText.toLowerCase().replace(" ", "-"));
+    public void NavigateToUrl(String url) {
+        if (!url.contains("casekaro.com")) {
+            Assert.fail("Not casekaro's url.");
         }
+        Playwright playwright = Playwright.create();
+        BrowserType browserType = playwright.chromium();
+        browser = browserType.launch(new BrowserType.LaunchOptions().setHeadless(false));
+        page = browser.newPage();
+        page.navigate(url);
     }
 
-    // this function is use to search for a brand
-    @When("I search for brand {string}")
-    public void i_search_for_brand(String brand) {
-        Locator input = page.locator("#search-bar-cover-page");
-        input.click();
-        input.fill(brand);
 
-        Locator brandSuggestion = page.locator("button.brand-name-container >> text=" + brand);
-        brandSuggestion.waitFor(new Locator.WaitForOptions().setTimeout(5000));
+    // In this step we are selecting the category of mobile covers
+    // and if the category is not mobile covers then we are failing the test case
 
-        Page newPage = page.waitForPopup(() -> {
-            brandSuggestion.click();
-        });
-        this.page = newPage;
-        page.waitForLoadState(LoadState.NETWORKIDLE);
+    @When ("I select the {string} category")
+    public void SelectCategory(String category) {
+        if (!(category.equals("Mobile Covers"))){
+            Assert.fail("Not a valid category.");
+        }
+        this.category = category;
+        page.click("#HeaderMenu-mobile-covers");
     }
 
-    // this function is use to to search for a specific model
-    @When("I search for model {string}")
-    public void i_search_for_model(String model) {
-        Locator input = page.locator("#search-bar-cover-page");
-        input.click();
-        input.fill(model);
 
+    // In this step we are searching for the brand of mobile covers
+    // and if the brand is not found then we are failing the test case
+
+    @And ("I search for brand {string}")
+    public void SearchBrand(String brand) {
+        this.brand = brand;
+        page.fill("#search-bar-cover-page", brand);
+
+        Locator visibleBrands = page.locator(".brand-name-container[style*='display: block']");
+        int visibleCount = visibleBrands.count();
+        if (visibleCount == 0) {
+        Assert.fail("Brand not found: " + brand);
+    }
+    if( visibleCount > 1) {
+            Assert.fail("Multiple brands found ");
+        }
+        page = page.waitForPopup(() -> visibleBrands.locator("a").first().click());
+
+page.waitForLoadState();
+    }
+
+    // In this step we are searching for the model of mobile covers
+    // and if the model is not found then we are failing the test case
+
+    @When ("I search for model {string}")
+    public void SearchModel(String model) {
+        this.model = model;
+        page.fill("#search-bar-cover-page", model);
         Locator modelLink = page.locator("a:has-text(\"" + model + "\")").first();
-        modelLink.waitFor(new Locator.WaitForOptions().setTimeout(5000));
+        if (modelLink.count() == 0 || !modelLink.isVisible()) {
+            Assert.fail("Model not found " + model);
+        }
         modelLink.click();
-        page.waitForLoadState(LoadState.NETWORKIDLE);
+        page.waitForLoadState();
     }
 
-    //this function is use to apply a filter on the page
-    @When("I apply filter {string} with option {string}")
-    public void i_apply_filter_with_option(String filterCategory, String optionText) {
-        Locator summary = page.locator("summary:has-text('" + filterCategory + "')").first();
-        summary.scrollIntoViewIfNeeded();
-        summary.click();
+    // In this step we are applying the filter on the mobile covers
+    // and if the filter is not found then we are failing the test case
 
-        Locator dropdown = summary.locator("xpath=ancestor::details[@open]");
+    @When ("I apply filter {string} with option {string}")
+    public void ApplyFilter(String category, String option){
+        Locator filter = page.locator("summary:has-text('" + category + "')").first();
+        filter.click();
+
+        Locator dropdown = filter.locator("xpath=ancestor::details[@open]");
         dropdown.waitFor();
 
-        Locator label = dropdown.locator("label:has-text('" + optionText + "')").first();
-        label.scrollIntoViewIfNeeded();
+        Locator label = dropdown.locator("label:has-text('" + option + "')").first();
         label.click();
-
-        Locator checkbox = label.locator("input[type='checkbox']");
-        Assertions.assertTrue(checkbox.isChecked(), optionText + " checkbox should be checked");
     }
 
-    // this function is use to verify products do not include any other brands
-    @Then("I validate that products do not contain other brands like {string}")
-    public void i_validate_that_products_do_not_contain_other_brands_like(String commaSeparatedBrands) {
-        String[] disallowedBrands = commaSeparatedBrands.split(",");
+    // In this step we are fetching the product details from the first n pages
+    // and storing them in the covers list
 
-        Locator productCards = page.locator("li.grid__item"); 
-        int cardCount = productCards.count();
 
-        for (int i = 0; i < cardCount; i++) {
-            Locator card = productCards.nth(i);
-            String description = "";
-            Locator descLoc = card.locator("h3.card__heading a");
-            if (descLoc.count() > 0) {
-                description = descLoc.first().innerText().toLowerCase();
-            }
-
-            for (String brand : disallowedBrands) {
-                String disallowedBrand = brand.trim().toLowerCase();
-                Assertions.assertFalse(description.contains(disallowedBrand),
-                        String.format("Product '%s' should not contain disallowed brand '%s'", description, disallowedBrand));
-            }
-        }
-    }
-
-    // this function is use to collect and store product data from multiple pages
     @Then("I fetch and store product details from first {int} pages")
-public void i_fetch_and_store_product_details_from_first_pages(Integer pageCount) {
-    products.clear();
-
+public void FetchProductDetails(int pageCount) {
     for (int pageNum = 1; pageNum <= pageCount; pageNum++) {
-        page.waitForLoadState(LoadState.NETWORKIDLE);
+        page.waitForLoadState();
         page.waitForSelector("li.grid__item");
 
         Locator productCards = page.locator("li.grid__item");
@@ -179,16 +135,16 @@ public void i_fetch_and_store_product_details_from_first_pages(Integer pageCount
                 description = descLoc.first().innerText().trim();
             }
 
-            String discountedStr = "";
+            String discounted = "";
             Locator discLoc = card.locator("span.price-item--sale");
             if (discLoc.count() > 0) {
-                discountedStr = discLoc.first().innerText().replaceAll("[^0-9.]", "");
+                discounted = discLoc.first().innerText().replaceAll("[^0-9.]", "");
             }
 
-            String actualStr = "";
+            String actual = "";
             Locator actLoc = card.locator("s.price-item--regular");
             if (actLoc.count() > 0) {
-                actualStr = actLoc.first().innerText().replaceAll("[^0-9.]", "");
+                actual = actLoc.first().innerText().replaceAll("[^0-9.]", "");
             }
 
             String imgSrc = "";
@@ -200,28 +156,30 @@ public void i_fetch_and_store_product_details_from_first_pages(Integer pageCount
                 }
             }
 
-            double discounted = discountedStr.isEmpty() ? 0.0 : Double.parseDouble(discountedStr);
-            double actual = actualStr.isEmpty() ? discounted : Double.parseDouble(actualStr);
+            Map<String, String> product = new HashMap<>();
+            product.put("description", description);
+            product.put("discounted", discounted);
+            product.put("actual", actual);
+            product.put("imgSrc", imgSrc);
 
-            products.add(new Product(discounted, actual, description, imgSrc));
+            covers.add(product);
         }
 
-        
         if (pageNum < pageCount) {
-            Locator openSummaries = page.locator("aside#main-collection-filters details[open] > summary.facets__summary");
-            int openCount = openSummaries.count();
+            Locator openFilters = page.locator("aside#main-collection-filters details[open] > summary.facets__summary");
+            int openCount = openFilters.count();
             for (int k = 0; k < openCount; k++) {
-                Locator summary = openSummaries.nth(k);
-                if (summary.isVisible()) {
-                    summary.click();
-                    page.waitForTimeout(200); 
+                Locator openFilter = openFilters.nth(k);
+                if (openFilter.isVisible()) {
+                    openFilter.click();
+                    page.waitForTimeout(200);
                 }
             }
 
             Locator nextBtn = page.locator("a[aria-label='Next page']");
             if (nextBtn.count() > 0 && nextBtn.first().isVisible()) {
                 nextBtn.first().click();
-                page.waitForLoadState(LoadState.NETWORKIDLE);
+                page.waitForLoadState();
             } else {
                 System.out.println("Next button not found on page " + pageNum);
                 break;
@@ -229,18 +187,50 @@ public void i_fetch_and_store_product_details_from_first_pages(Integer pageCount
         }
     }
 
-    Assertions.assertFalse(products.isEmpty(), "Product list should not be empty");
+    assertFalse(covers.isEmpty());
 }
 
+    // In this step we are sorting the product by discounted price in ascending order
+    // and if no products are found then we are failing the test case
 
-    // Step to print all product details sorted by discounted price
-    @Then("I print all products sorted by discounted price ascending")
-    public void i_print_all_products_sorted_by_discounted_price_ascending() {
-        products.sort(Comparator.comparingDouble(Product::getDiscountedPrice));
-
-        for (Product p : products) {
-            System.out.println(p);
+    @Then("I sort the product in asending order by discounted price")
+    public void SortByDiscountedPrice() {
+        if (covers.isEmpty()) {
+            Assert.fail("No products found to sort.");
+            return;
         }
+        int n = covers.size();
+        for (int i = 0; i < n - 1; i++) {
+            for (int j = 0; j < n - i - 1; j++) {
+                double price1 = Double.parseDouble(covers.get(j).get("discounted"));
+                double price2 = Double.parseDouble(covers.get(j + 1).get("discounted"));
+                if (price1 > price2) {
+                    Map<String, String> temp = covers.get(j);
+                    covers.set(j, covers.get(j + 1));
+                    covers.set(j + 1, temp);
+                }
+            }
+        }
+    }
+
+    // In this step we are printing the sorted data to the console
+    
+
+    @Then("I print the sorted data to the console")
+    public void PrintSortedData() {
+        if (covers.isEmpty()) {
+            Assert.fail("No covers found to print.");
+            return;
+        }
+        System.out.println("Sorted Covers by Discounted Price:");
+        for (Map<String, String> cover : covers) {
+            System.out.println("Description: " + cover.get("description"));
+            System.out.println("Discounted Price: " + cover.get("discounted"));
+            System.out.println("Actual Price: " + cover.get("actual"));
+            System.out.println("Image Source: " + cover.get("imgSrc"));
+            System.out.println("-----------------------------");
+        }
+        browser.close();
     }
 }
 
